@@ -29,6 +29,20 @@ export default function Layout() {
       />
 
       <Stack.Screen
+        name="resultado"
+        options={{
+          title: "Pedido realizado",
+        }}
+      />
+
+      <Stack.Screen
+        name="pedidos"
+        options={{
+          title: "Pedidos registrados",
+        }}
+      />
+
+      <Stack.Screen
         name="imagenes"
         options={{
           title: "Controles",

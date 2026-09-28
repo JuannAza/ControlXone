@@ -149,7 +149,7 @@ export default function Inicio() {
       {/* ============================================
           OPCIONES EN HORIZONTAL
           Este View con flexDirection: "row" hace que las
-          tres tarjetas se acomoden en una sola fila
+          tarjetas se acomoden en una sola fila
           ============================================ */}
       <View style={styles.opcionesFila}>
         {/* OPCIÓN 1: Controles -> navega a /imagenes */}
@@ -174,6 +174,14 @@ export default function Inicio() {
           titulo="Contacto"
           descripcion="Consulta la información y ubicación de nuestra tienda."
           onPress={() => router.push("/contacto")}
+        />
+
+        {/* OPCIÓN 4: Ver pedidos -> navega a /pedido */}
+        <OpcionMenu
+          icono="📋"
+          titulo="Ver pedidos"
+          descripcion="Consulta todos los pedidos registrados."
+          onPress={() => router.push("/pedidos")}
         />
       </View>
 
@@ -352,16 +360,18 @@ const styles = StyleSheet.create({
   },
 
   // ---------- CONTENEDOR DE LAS TARJETAS EN FILA ----------
-  // CLAVE: flexDirection "row" pone los hijos en horizontal
+  // CLAVE: flexDirection "row" + flexWrap "wrap" permite que las tarjetas
+  // pasen a una segunda fila cuando no caben
   opcionesFila: {
-    flexDirection: "row",  // Los tres OpcionMenu quedan en una fila
+    flexDirection: "row",
+    flexWrap: "wrap",      // Permite que pasen a otra fila
     gap: 10,               // Espacio de 10px entre tarjetas
     marginBottom: 14,
   },
 
   // ---------- TARJETA (OpcionMenu) ----------
   card: {
-    flex: 1,               // Cada tarjeta ocupa 1/3 del ancho disponible
+    width: "48%",          // Dos tarjetas por fila
     backgroundColor: "#151B2A",
     borderRadius: 20,
     padding: 16,
