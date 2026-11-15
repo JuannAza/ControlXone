@@ -1,17 +1,23 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 
-// Cliente de Supabase configurado en src/lib/supabase.js
-import { supabase } from "../lib/supabase";
+import { productos } from "@/constants/productos";
+// Cliente de Supabase configurado en src/lib/supabase.ts
+import { supabase } from "@/lib/supabase";
+
+const opcionesCantidad = Array.from({ length: 10 }, (_, index) =>
+  String(index + 1),
+);
 
 // ── Pantalla del formulario de pedidos ──────────────────────────────────
 // Muestra el formulario, valida los datos y los guarda en Supabase.
@@ -26,9 +32,68 @@ export default function Formulario() {
   const [telefono, setTelefono] = useState("");  // Teléfono
   const [control, setControl] = useState("");    // Control que quiere comprar
   const [cantidad, setCantidad] = useState("");  // Cantidad de controles
+  const [opcionesControl, setOpcionesControl] = useState<string[]>([]);
+  const [cargandoControles, setCargandoControles] = useState(true);
+  const [avisoControles, setAvisoControles] = useState("");
+  const [controlDesplegado, setControlDesplegado] = useState(false);
+  const [cantidadDesplegada, setCantidadDesplegada] = useState(false);
 
   // Estado que controla si el botón está "guardando" (para mostrar la carga)
   const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+
+    async function cargarControles() {
+      try {
+        const { data, error } = await supabase
+          .from("catalogo_qr")
+          .select("codigo,titulo")
+          .order("codigo", { ascending: true });
+
+        if (error) {
+          throw error;
+        }
+
+        if (activo) {
+          if (data?.length) {
+            const nombres = data.map(
+              (item) =>
+                item.titulo ??
+                productos.find((producto) => producto.codigo === item.codigo)
+                  ?.nombre ??
+                item.codigo,
+            );
+            setOpcionesControl([...new Set(nombres)]);
+          } else {
+            setOpcionesControl(productos.map((producto) => producto.nombre));
+            setAvisoControles(
+              "No hay controles en Supabase; se muestran los disponibles en la app.",
+            );
+          }
+        }
+      } catch (error: unknown) {
+        console.error("Error al cargar controles para el pedido:", error);
+
+        if (activo) {
+          setOpcionesControl(productos.map((producto) => producto.nombre));
+          setAvisoControles(
+            "No se pudo consultar Supabase; se muestran los controles disponibles en la app.",
+          );
+        }
+      } finally {
+        if (activo) {
+          setCargandoControles(false);
+        }
+      }
+    }
+
+    void cargarControles();
+
+    return () => {
+      activo = false;
+    };
+  }, []);
 
   // ── Función: validar el correo electrónico ────────────────────────────
   // Devuelve true si el correo tiene formato válido (algo@algo.algo)
@@ -49,32 +114,36 @@ export default function Formulario() {
       !control.trim() ||
       !cantidad.trim()
     ) {
-      alert("Todos los campos son obligatorios");
+      Alert.alert("Campos incompletos", "Todos los campos son obligatorios");
       return; // Se detiene aquí si falta algún campo
     }
 
     // Paso 2: validar que el correo tenga formato correcto
-    if (!validarCorreo(correo)) {
-      alert("Ingrese un correo electrónico válido");
+    if (!validarCorreo(correo.trim())) {
+      Alert.alert("Correo inválido", "Ingrese un correo electrónico válido");
       return;
     }
 
     // Paso 3: validar que el teléfono contenga solo números
-    if (isNaN(Number(telefono))) {
-      alert("El teléfono debe contener solamente números");
+    if (!/^\d+$/.test(telefono.trim())) {
+      Alert.alert("Teléfono inválido", "El teléfono debe contener solamente números");
       return;
     }
 
     // Paso 4: validar la longitud mínima del teléfono
     if (telefono.length < 7) {
-      alert("Ingrese un número de teléfono válido");
+      Alert.alert("Teléfono inválido", "Ingrese un número de teléfono válido");
       return;
     }
 
-    // Paso 5: validar que la cantidad sea un número mayor a 0
+    // Paso 5: validar que la cantidad esté entre 1 y 10
     const cantidadNumero = Number(cantidad);
-    if (isNaN(cantidadNumero) || cantidadNumero <= 0) {
-      alert("Ingrese una cantidad válida");
+    if (
+      !Number.isInteger(cantidadNumero) ||
+      cantidadNumero < 1 ||
+      cantidadNumero > 10
+    ) {
+      Alert.alert("Cantidad inválida", "Seleccione una cantidad entre 1 y 10");
       return;
     }
 
@@ -100,7 +169,7 @@ export default function Formulario() {
       // Paso 8: si Supabase devolvió un error (tabla no existe, permisos, red...)
       if (error) {
         console.log("ERROR SUPABASE:", error); // Se muestra en consola para depurar
-        alert("Error al guardar: " + error.message);
+        Alert.alert("Error al guardar", error.message);
         return;
       }
 
@@ -109,11 +178,12 @@ export default function Formulario() {
 
       // Si por alguna razón no se recuperó, avisamos al usuario
       if (!registro) {
-        alert("No fue posible recuperar el registro guardado");
+        Alert.alert(
+          "Error al guardar",
+          "No fue posible recuperar el registro guardado"
+        );
         return;
       }
-
-      console.log("REGISTRO GUARDADO:", registro); // Para verlo en consola
 
       // Paso 10: navegar a la pantalla de resultado con los datos guardados
       router.push({
@@ -137,7 +207,7 @@ export default function Formulario() {
     } catch (error) {
       // Si ocurre un error inesperado no controlado arriba
       console.log("ERROR INESPERADO:", error);
-      alert("No fue posible guardar la información");
+      Alert.alert("Error al guardar", "No fue posible guardar la información");
     } finally {
       // Paso 12: siempre se ejecuta, desactiva el indicador de carga
       setGuardando(false);
@@ -216,25 +286,106 @@ export default function Formulario() {
         {/* Campo: Control que desea comprar */}
         <Text style={styles.label}>Control que desea comprar</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: GameSir Kaleid"
-          placeholderTextColor="#7F8A9C"
-          value={control}
-          onChangeText={setControl}
-        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Seleccionar control que desea comprar"
+          accessibilityState={{ expanded: controlDesplegado }}
+          disabled={guardando || cargandoControles || !opcionesControl.length}
+          onPress={() => {
+            setControlDesplegado((abierto) => !abierto);
+            setCantidadDesplegada(false);
+          }}
+          style={({ pressed }) => [
+            styles.selector,
+            pressed && styles.botonPresionado,
+            (guardando || cargandoControles || !opcionesControl.length) &&
+              styles.selectorDesactivado,
+          ]}
+        >
+          <Text
+            style={
+              control ? styles.selectorTexto : styles.selectorPlaceholder
+            }
+          >
+            {cargandoControles
+              ? "Cargando controles..."
+              : control || "Selecciona un control"}
+          </Text>
+          <Text style={styles.flechaSelector}>⌄</Text>
+        </Pressable>
+
+        {controlDesplegado ? (
+          <View style={styles.listaDesplegable}>
+            {opcionesControl.map((nombreControl) => (
+              <Pressable
+                key={nombreControl}
+                accessibilityRole="button"
+                onPress={() => {
+                  setControl(nombreControl);
+                  setControlDesplegado(false);
+                }}
+                style={({ pressed }) => [
+                  styles.opcionDesplegable,
+                  pressed && styles.botonPresionado,
+                ]}
+              >
+                <Text style={styles.opcionTexto}>{nombreControl}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {avisoControles ? (
+          <Text style={styles.avisoControles}>{avisoControles}</Text>
+        ) : null}
 
         {/* Campo: Cantidad */}
-        <Text style={styles.label}>Cantidad</Text>
+        <Text style={styles.label}>Cantidad (1 a 10)</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: 1"
-          placeholderTextColor="#7F8A9C"
-          value={cantidad}
-          onChangeText={setCantidad}
-          keyboardType="numeric"            // Solo muestra teclado numérico
-        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Seleccionar cantidad"
+          accessibilityState={{ expanded: cantidadDesplegada }}
+          disabled={guardando}
+          onPress={() => {
+            setCantidadDesplegada((abierto) => !abierto);
+            setControlDesplegado(false);
+          }}
+          style={({ pressed }) => [
+            styles.selector,
+            pressed && styles.botonPresionado,
+            guardando && styles.selectorDesactivado,
+          ]}
+        >
+          <Text
+            style={
+              cantidad ? styles.selectorTexto : styles.selectorPlaceholder
+            }
+          >
+            {cantidad || "Selecciona una cantidad"}
+          </Text>
+          <Text style={styles.flechaSelector}>⌄</Text>
+        </Pressable>
+
+        {cantidadDesplegada ? (
+          <View style={styles.listaDesplegable}>
+            {opcionesCantidad.map((opcion) => (
+              <Pressable
+                key={opcion}
+                accessibilityRole="button"
+                onPress={() => {
+                  setCantidad(opcion);
+                  setCantidadDesplegada(false);
+                }}
+                style={({ pressed }) => [
+                  styles.opcionDesplegable,
+                  pressed && styles.botonPresionado,
+                ]}
+              >
+                <Text style={styles.opcionTexto}>{opcion}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {/* ── Botón Guardar ─────────────────────────────────────────────
             Si está guardando, muestra una rueda de carga y se desactiva
@@ -382,6 +533,72 @@ const styles = StyleSheet.create({
     marginBottom: 17,
     color: "#FFFFFF",
     fontSize: 15,
+  },
+
+  selector: {
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0F1522",
+    borderWidth: 1,
+    borderColor: "#30394D",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 17,
+  },
+
+  selectorDesactivado: {
+    opacity: 0.6,
+  },
+
+  selectorTexto: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 15,
+  },
+
+  selectorPlaceholder: {
+    flex: 1,
+    color: "#7F8A9C",
+    fontSize: 15,
+  },
+
+  flechaSelector: {
+    color: "#00E5FF",
+    fontSize: 20,
+    marginLeft: 12,
+  },
+
+  listaDesplegable: {
+    backgroundColor: "#0F1522",
+    borderWidth: 1,
+    borderColor: "#30394D",
+    borderRadius: 14,
+    marginTop: -10,
+    marginBottom: 17,
+    overflow: "hidden",
+  },
+
+  opcionDesplegable: {
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#252D40",
+  },
+
+  opcionTexto: {
+    color: "#FFFFFF",
+    fontSize: 15,
+  },
+
+  avisoControles: {
+    color: "#AEB9C8",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: -9,
+    marginBottom: 16,
   },
 
   // Botón principal

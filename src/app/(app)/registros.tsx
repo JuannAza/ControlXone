@@ -2,51 +2,68 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Pressable,
     StyleSheet,
     Text,
     View,
 } from "react-native";
-import { supabase } from "../lib/supabase";
 
-// ── Pantalla: listar todos los pedidos ──────────────────────────────────
-// Consulta la tabla "pedidos" y muestra cada registro en una tarjeta.
-export default function Pedidos() {
+import { supabase } from "@/lib/supabase";
+
+type Pedido = {
+  id: string | number;
+  nombre: string;
+  correo: string;
+  telefono: string;
+  control: string;
+  cantidad: number;
+};
+
+export default function Registros() {
   const router = useRouter();
 
-  // Estado con la lista de pedidos que devuelve Supabase
-  const [pedidos, setPedidos] = useState<any[]>([]);
-
-  // Estado que indica si la consulta está en curso
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  // Al montar la pantalla, se cargan los pedidos
   useEffect(() => {
-    cargarPedidos();
+    let active = true;
+
+    void Promise.resolve(
+      supabase
+        .from("pedidos")
+        .select("*")
+        .order("id", { ascending: false })
+    )
+      .then(({ data, error }) => {
+        if (!active) return;
+
+        if (error) {
+          Alert.alert("Error al consultar", error.message);
+          return;
+        }
+
+        setPedidos(data ?? []);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Ocurrió un error inesperado.";
+        Alert.alert("Error al consultar", message);
+      })
+      .finally(() => {
+        if (active) setCargando(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // ── Función: consultar todos los pedidos ────────────────────────────
-  const cargarPedidos = async () => {
-    setCargando(true);
-
-    // SELECT * FROM pedidos ORDER BY id DESC
-    const { data, error } = await supabase
-      .from("pedidos")
-      .select("*")
-      .order("id", { ascending: false });
-
-    if (error) {
-      alert("Error al consultar: " + error.message);
-      setCargando(false);
-      return;
-    }
-
-    setPedidos(data || []);
-    setCargando(false);
-  };
-
-  // Mientras carga, muestra una rueda girando
   if (cargando) {
     return (
       <View style={styles.centro}>
@@ -58,13 +75,11 @@ export default function Pedidos() {
 
   return (
     <View style={styles.container}>
-      {/* Título */}
       <Text style={styles.titulo}>🎮 Pedidos registrados</Text>
 
-      {/* Lista de pedidos */}
       <FlatList
         data={pedidos}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -84,7 +99,6 @@ export default function Pedidos() {
         }
       />
 
-      {/* Botón para volver al formulario */}
       <Pressable
         style={({ pressed }) => [
           styles.boton,
@@ -98,7 +112,6 @@ export default function Pedidos() {
   );
 }
 
-// ── Estilos (paleta oscura de ControlZone) ──────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,

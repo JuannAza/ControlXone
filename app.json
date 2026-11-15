@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Labo",
+    "name": "ControlXone",
     "slug": "Labo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.juanazasandia.miprimerapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,11 +34,27 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite que ControlXone use la cámara para escanear códigos QR.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c1fe4232-0955-4f31-bbac-dd6e9b479211"
+      }
     }
   }
 }

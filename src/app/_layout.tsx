@@ -1,60 +1,36 @@
 import { Stack } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
 
-export default function Layout() {
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+
+function RootNavigator() {
+  const { session, cargando } = useAuth();
+
+  if (cargando) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00AFC4" />
+      </View>
+    );
+  }
+
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: "#0B0F19",
-        },
-        headerTintColor: "#FFFFFF",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
-        headerShadowVisible: false,
-      }}
-    >
-      <Stack.Screen
-        name="index"
-        options={{
-          title: "ControlZone",
-        }}
-      />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
 
-      <Stack.Screen
-        name="formulario"
-        options={{
-          title: "Realizar pedido",
-        }}
-      />
-
-      <Stack.Screen
-        name="resultado"
-        options={{
-          title: "Pedido realizado",
-        }}
-      />
-
-      <Stack.Screen
-        name="pedidos"
-        options={{
-          title: "Pedidos registrados",
-        }}
-      />
-
-      <Stack.Screen
-        name="imagenes"
-        options={{
-          title: "Controles",
-        }}
-      />
-
-      <Stack.Screen
-        name="contacto"
-        options={{
-          title: "Contacto",
-        }}
-      />
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(app)" />
+      </Stack.Protected>
     </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
   );
 }
